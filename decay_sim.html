@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radioactive Decay: Carbon-14 to Nitrogen-14</title>
+<style>
+  /* ---------- Base ---------- */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    background: #f5f0ea;
+    color: #2d2d2d;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+  }
+
+  /* ---------- Palette ---------- */
+  :root {
+    --sphere-light: #ede2c8;
+    --sphere-dark: #d4c4a0;
+    --sphere-stroke: #8b7355;
+    --proton: #c8302c;
+    --neutron: #2c5aa0;
+    --text: #2d2d2d;
+    --energy: #c8302c;
+    --button: #6b8b5a;
+    --button-hover: #5a7a49;
+    --bg: #f5f0ea;
+  }
+
+  /* ---------- Layout ---------- */
+  /* Stage is wider to accommodate the info box. Scene is centered within stage.
+     Info box is absolutely positioned to the right so it doesn't affect scene/button centering. */
+  .stage {
+    width: 100%;
+    max-width: 1100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .scene {
+    width: 900px;
+    max-width: 100%;
+    height: 380px;
+    position: relative;
+  }
+  .info-box {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 280px;
+    background: #fefbf3;
+    border: 2px solid #8b7355;
+    border-radius: 12px;
+    padding: 18px 20px;
+    font-size: 17px;
+    line-height: 1.5;
+    color: #2d2d2d;
+    opacity: 0;
+    transition: opacity 1.8s ease-in;
+    pointer-events: none;
+  }
+  .info-box.visible {
+    opacity: 1;
+  }
+  .info-box strong {
+    font-weight: bold;
+  }
+  .info-box .info-header {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #2d2d2d;
+  }
+  svg.scene-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;  /* don't let SVG elements intercept clicks meant for buttons */
+  }
+
+  /* ---------- Sphere group transitions ---------- */
+  .sphere-group {
+    transition: transform 0.6s ease;
+  }
+  /* Fade out (dimming) is the default — handled by .fading rule below.
+     Fade in (brightening back up) uses a longer transition for a gentler return. */
+  .sphere-group text {
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-weight: bold;
+    transition: opacity 2s ease-in;  /* slower fade-in for new labels */
+  }
+  .sphere-group.fading text {
+    opacity: 0.25;
+    transition: opacity 0.8s ease-out;  /* faster fade-out as labels dim */
+  }
+  .sphere-name {
+    font-size: 32px;
+    fill: var(--text);
+  }
+  .sphere-text-p {
+    fill: var(--proton);
+    font-size: 38px;
+  }
+  .sphere-text-n {
+    fill: var(--neutron);
+    font-size: 38px;
+  }
+  .sphere-circle {
+    transition: fill 0.4s ease;
+  }
+
+  /* ---------- Energy burst ---------- */
+  /* A single soft yellow glow that bursts outward once per decay event,
+     surrounding the entire atom. Two layered glows for depth — outer glow
+     larger and fainter, inner glow tighter and brighter.
+     pointer-events: none ensures the burst doesn't block clicks on buttons
+     below (it covers a large area visually). */
+  .energy-group {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .energy-group.active {
+    animation: energyBurst 1.8s ease-out forwards;
+  }
+  @keyframes energyBurst {
+    0% {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    25% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.6);
+    }
+  }
+  /* Transform origin must be the sphere center for the scale to grow outward. */
+  #energyGroup {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  /* ---------- Beta particle ---------- */
+  /* The particle is released ONCE per decay event (not looping), which is
+     scientifically accurate — one beta decay produces one beta particle. */
+  .particle-group {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .particle-group.active {
+    animation: particleFly 1.8s ease-out forwards;
+  }
+  @keyframes particleFly {
+    0% {
+      transform: translate(0, 0);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(220px, -140px);
+      opacity: 0;
+    }
+  }
+  .particle-dot {
+    fill: #2c5aa0;
+    stroke: #1a3d7a;
+    stroke-width: 2;
+  }
+  .bolt {
+    fill: var(--energy);
+    stroke: #8b1f1c;
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+
+  /* ---------- Caption ---------- */
+  .caption {
+    width: 100%;
+    max-width: 900px;
+    text-align: center;
+    padding: 10px 24px;
+    font-size: 22px;
+    line-height: 1.5;
+    color: var(--text);
+    min-height: 70px;
+  }
+  .caption strong { font-weight: bold; }
+
+  /* ---------- Controls ---------- */
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  button {
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 14px 28px;
+    background: var(--button);
+    color: white;
+    border: 2px solid #4d6b3e;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+  button:hover:not(:disabled) {
+    background: var(--button-hover);
+  }
+  button:active:not(:disabled) {
+    transform: translateY(2px);
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  button.reset {
+    background: #8b7355;
+    border-color: #6b5538;
+  }
+  button.reset:hover:not(:disabled) {
+    background: #6b5538;
+  }
+
+  /* ---------- Step indicator ---------- */
+  .steps {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .step-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #d4c4a0;
+    border: 2px solid var(--sphere-stroke);
+    transition: background 0.3s ease;
+  }
+  .step-dot.active { background: var(--button); }
+  .step-dot.complete { background: var(--proton); }
+</style>
+</head>
+<body>
+
+<div class="caption" id="caption">
+  Click <strong>Start Decay</strong> to watch Carbon-14 transform into Nitrogen-14.
+</div>
+
+<div class="stage">
+  <div class="scene">
+    <svg class="scene-svg" viewBox="0 0 900 450" preserveAspectRatio="xMidYMid meet">
+      <!-- Gradients -->
+      <defs>
+        <radialGradient id="sphereGrad" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#ede2c8"/>
+          <stop offset="70%" stop-color="#d4c4a0"/>
+          <stop offset="100%" stop-color="#d4c4a0"/>
+        </radialGradient>
+        <radialGradient id="energyGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fff8c2" stop-opacity="0"/>
+          <stop offset="40%" stop-color="#f5d028" stop-opacity="0.65"/>
+          <stop offset="70%" stop-color="#f0b020" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#e89510" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- Energy burst: rendered BEHIND the sphere so the sphere stays the focal point.
+           Layered concentric yellow glows that radiate outward when active. -->
+      <g class="energy-group" id="energyGroup">
+        <circle cx="450" cy="220" r="230" fill="url(#energyGrad)"/>
+        <circle cx="450" cy="220" r="180" fill="#f5d028" fill-opacity="0.35"/>
+        <circle cx="450" cy="220" r="155" fill="#fff8c2" fill-opacity="0.25"/>
+      </g>
+
+      <!-- Sphere — renders on top of the energy burst -->
+      <g class="sphere-group" id="sphereGroup" transform="translate(450, 220)">
+        <circle class="sphere-circle" cx="0" cy="0" r="140" fill="url(#sphereGrad)" stroke="#8b7355" stroke-width="2.5"/>
+        <text class="sphere-text-p" id="textP" x="0" y="-8" text-anchor="middle">6 p+</text>
+        <text class="sphere-text-n" id="textN" x="0" y="42" text-anchor="middle">8 n</text>
+        <text class="sphere-name" id="textName" x="0" y="195" text-anchor="middle">Carbon-14</text>
+      </g>
+
+      <!-- Small particle that flies outward from the sphere during decay.
+           Positioned at upper-right of sphere. CSS animation pulls it diagonally outward. -->
+      <g class="particle-group" id="particleGroup">
+        <circle class="particle-dot" cx="510" cy="155" r="14"/>
+      </g>
+    </svg>
+  </div>
+  <div class="info-box" id="infoBox">
+    <div class="info-header">What's happening?</div>
+    A <strong>neutron</strong> transforms into a <strong>proton</strong>, releasing <strong>energy</strong> and a <strong>beta particle</strong>, creating a new element, <strong>Nitrogen</strong>.
+  </div>
+</div>
+
+<div class="steps">
+  <div class="step-dot active" id="dot1"></div>
+  <div class="step-dot" id="dot2"></div>
+</div>
+
+<div class="controls">
+  <button id="nextBtn">Start Decay</button>
+  <button id="resetBtn" class="reset" disabled>Reset</button>
+</div>
+
+<script>
+  /* ----- State machine -----
+   * step 0: Carbon-14 shown, prompt to start decay
+   * step 1: Decay event triggered. Energy burst + beta particle animate.
+   *         Partway through the burst, the labels fade-swap to Nitrogen-14.
+   *         When animation finishes, the atom is Nitrogen-14.
+   */
+  const captionEl = document.getElementById('caption');
+  const textP = document.getElementById('textP');
+  const textN = document.getElementById('textN');
+  const textName = document.getElementById('textName');
+  const energyGroup = document.getElementById('energyGroup');
+  const particleGroup = document.getElementById('particleGroup');
+  const infoBox = document.getElementById('infoBox');
+  const nextBtn = document.getElementById('nextBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const dots = [document.getElementById('dot1'),
+                document.getElementById('dot2')];
+
+  const captions = {
+    initial: 'This is <strong>Carbon-14</strong>, an <strong>unstable</strong> radioactive isotope. It has <strong>6 protons</strong> and <strong>8 neutrons</strong>. Click <strong>Start Decay</strong> to watch what happens.',
+    decaying: 'Carbon-14 is undergoing <strong>radioactive decay</strong>, releasing <strong>energy</strong> and a <strong>small particle</strong>. One neutron is transforming into a proton...',
+    final: 'The atom is now <strong>Nitrogen-14</strong>, a <strong>stable</strong> isotope with <strong>7 protons</strong> and <strong>7 neutrons</strong>. The radioactive clock for this atom has stopped.'
+  };
+
+  let step = 0;
+  let labelSwapTimer = null;
+  let finishTimer = null;
+
+  function updateDots(activeIdx) {
+    dots.forEach((dot, i) => {
+      dot.classList.remove('active', 'complete');
+      if (i < activeIdx) dot.classList.add('complete');
+      else if (i === activeIdx) dot.classList.add('active');
+    });
+  }
+
+  function setLabels(p, n, name) {
+    textP.textContent = p;
+    textN.textContent = n;
+    textName.textContent = name;
+  }
+
+  function showInitial() {
+    // Clear any pending timers
+    if (labelSwapTimer) { clearTimeout(labelSwapTimer); labelSwapTimer = null; }
+    if (finishTimer) { clearTimeout(finishTimer); finishTimer = null; }
+
+    step = 0;
+    document.getElementById('sphereGroup').classList.remove('fading');
+    // Clear any inline opacity left over from a previous decay
+    [textP, textN, textName].forEach(el => { el.style.opacity = ''; });
+    setLabels('6 p+', '8 n', 'Carbon-14');
+    energyGroup.classList.remove('active');
+    particleGroup.classList.remove('active');
+    infoBox.classList.remove('visible');
+    captionEl.innerHTML = captions.initial;
+    updateDots(0);
+    nextBtn.textContent = 'Start Decay';
+    nextBtn.disabled = false;
+    resetBtn.disabled = true;
+  }
+
+  function triggerDecay() {
+    step = 1;
+    captionEl.innerHTML = captions.decaying;
+    updateDots(1);
+    nextBtn.textContent = 'Decaying...';
+    nextBtn.disabled = true;
+    resetBtn.disabled = false;
+
+    // Restart both animations
+    energyGroup.classList.remove('active');
+    particleGroup.classList.remove('active');
+    void energyGroup.offsetWidth;
+    void particleGroup.offsetWidth;
+    energyGroup.classList.add('active');
+    particleGroup.classList.add('active');
+
+    // Animation flow: labels fade from full opacity down to 0.25, swap text at
+    // dim point, then fade back up to full opacity slowly.
+    //
+    // The CSS transition only fires on existing text nodes. Changing textContent
+    // creates new nodes, which would skip the fade-in. To make the new text
+    // fade in properly, we set inline opacity: 0.25 BEFORE swapping the text,
+    // then remove the inline opacity AFTER the swap so the CSS transition takes
+    // over and animates from 0.25 -> 1.
+    const sphereGroupEl = document.getElementById('sphereGroup');
+    const textEls = [textP, textN, textName];
+
+    labelSwapTimer = setTimeout(() => {
+      sphereGroupEl.classList.add('fading');  // labels dim over 800ms
+      setTimeout(() => {
+        // Pin opacity to 0.25 inline so it survives the text swap
+        textEls.forEach(el => { el.style.opacity = '0.25'; });
+        setLabels('7 p+', '7 n', 'Nitrogen-14');  // swap text while at low opacity
+        sphereGroupEl.classList.remove('fading');
+        // Force browser to register the inline style, then remove it on next frame
+        // so the CSS transition (2s ease-in) animates from 0.25 -> 1.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            textEls.forEach(el => { el.style.opacity = ''; });
+          });
+        });
+      }, 800);
+    }, 200);
+
+    // When animation fully completes, lock in the final state and caption.
+    // 2600ms gives time for: burst (1.8s) + slow label fade-in (2s starting at 1000ms = ends at 3000ms).
+    // We finish at 2600ms which is a reasonable compromise — labels are mostly bright by then.
+    finishTimer = setTimeout(() => {
+      captionEl.innerHTML = captions.final;
+      updateDots(2);  // both dots complete
+      nextBtn.textContent = 'Done';
+      nextBtn.disabled = true;
+      // Now that the decay is complete, show the explanation box so students can
+      // read it without competing with the animation.
+      infoBox.classList.add('visible');
+    }, 2600);
+  }
+
+  nextBtn.addEventListener('click', () => {
+    if (step === 0) triggerDecay();
+  });
+
+  resetBtn.addEventListener('click', showInitial);
+
+  // Initialize
+  showInitial();
+</script>
+
+</body>
+</html>
